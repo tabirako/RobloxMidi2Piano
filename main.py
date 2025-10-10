@@ -35,6 +35,14 @@ extra_octave = True
 def midi_callback(event, data=None):
     midi_queue.put(event)  # push message into queue
 
+# --- MIDI garbage collection (runs after the windows is closed) --- 
+def on_close():
+    global current_port
+    if current_port is not None:
+        midi_in.close_port()
+        print("MIDI port closed cleanly")
+    root.destroy()
+
 # --- Process MIDI messages in main thread ---
 def process_midi_queue():
     while not midi_queue.empty():
@@ -129,17 +137,12 @@ root.after(sleep_time, process_midi_queue)
 
 root.mainloop()
 
-print("boo")
-
-midi_in.open_port(0)
-
-print(midi_in.is_port_open())
+root.protocol("WM_DELETE_WINDOW", on_close)
 
 
+print("end of the program")
 
-
-
-while True:
+while False:
     msg_and_dt = midi_in.get_message()
 
     #print(msg_and_dt)
