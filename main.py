@@ -135,9 +135,13 @@ log_text.grid(row=2, column=0, columnspan=3, pady=10)
 # Start polling the queue
 root.after(sleep_time, process_midi_queue)
 
+root.protocol("WM_DELETE_WINDOW", on_close)
+
+# Auto-refresh devices once on startup
+refresh_devices()
+
 root.mainloop()
 
-root.protocol("WM_DELETE_WINDOW", on_close)
 
 
 print("end of the program")
