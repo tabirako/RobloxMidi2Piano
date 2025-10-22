@@ -59,17 +59,64 @@ def process_midi_queue():
                 note += 12
 
         # Mode handling
-        if mode_var.get() == "keydown":
+        if mode_var.get() == "keydown": # keydown only
             if status & 0xF0 == 0x90 and velocity > 0:
+                # Code 0x9_ : Note On _ = channel number, 16 channels, 0-f
                 log_text.insert(tk.END, f"Note ON {note}\n")
                 # TODO: send keyboard event here
+                    # taking only KEYDOWN
+            
+                # playable region
+                if note >= 24 and note <=108:
+                    # print (msg_and_dt)
+                    # out of zone
+                    if extra_octave:
+                        if note < 36:
+                            note += 12
+                        if note > 96:
+                            note -= 12
+                    
+                    if natural_mask[note%12]: # notes with no sharps
+                        keyboard.press(piano[note-36])
+                    else: # notes with sharps
+                        keyboard.press("shift")
+                        keyboard.press(piano[note-36])
+                        keyboard.release("shift")
 
-        else:
+                    keyboard.release(piano[note-36])    
+
+        else: # keydown and keyup 
             if status & 0xF0 == 0x90 and velocity > 0:
                 log_text.insert(tk.END, f"Note ON {note}\n")
+
+                # playable region
+                if note >= 24 and note <=108:
+                    # print (msg_and_dt)
+                    # out of zone
+                    if extra_octave:
+                        if note < 36:
+                            note += 12
+
+                        if note > 96:
+                            note -= 12
+                    
+                    if natural_mask[note%12]: # notes with no sharps
+                        keyboard.press(piano[note-36])
+                    else: # notes with sharps
+                        keyboard.press("shift")
+                        keyboard.press(piano[note-36])
+                        keyboard.release("shift")
+
             elif status & 0xF0 == 0x80 or (status & 0xF0 == 0x90 and velocity == 0):
                 log_text.insert(tk.END, f"Note OFF {note}\n")
-            # TODO: send keyboard event here
+                # TODO: send keyboard event here
+                if extra_octave:
+                    if note < 36:
+                        note += 12
+                    if note > 96:
+                        note -= 12
+
+                keyboard.release(piano[note-36])    
 
         log_text.see(tk.END)
 
@@ -141,8 +188,6 @@ root.protocol("WM_DELETE_WINDOW", on_close)
 refresh_devices()
 
 root.mainloop()
-
-
 
 print("end of the program")
 
