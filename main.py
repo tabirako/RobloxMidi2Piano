@@ -46,7 +46,7 @@ def on_close():
 # --- Process MIDI messages in main thread ---
 def process_midi_queue():
     while not midi_queue.empty():
-        message, deltatime = midi_queue.get()
+        message, deltatime = midi_queue.get() # deltatime is a throwaway variable here
         status = message[0]
         note = message[1]
         velocity = message[2] if len(message) > 2 else 0
@@ -70,11 +70,6 @@ def process_midi_queue():
                 if note >= 24 and note <=108:
                     # print (msg_and_dt)
                     # out of zone
-                    if extra_octave:
-                        if note < 36:
-                            note += 12
-                        if note > 96:
-                            note -= 12
                     
                     if natural_mask[note%12]: # notes with no sharps
                         keyboard.press(piano[note-36])
@@ -93,12 +88,6 @@ def process_midi_queue():
                 if note >= 24 and note <=108:
                     # print (msg_and_dt)
                     # out of zone
-                    if extra_octave:
-                        if note < 36:
-                            note += 12
-
-                        if note > 96:
-                            note -= 12
                     
                     if natural_mask[note%12]: # notes with no sharps
                         keyboard.press(piano[note-36])
