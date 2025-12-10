@@ -32,10 +32,18 @@ extra_octave = True
 def midi_callback(event, data=None):
     midi_queue.put(event)  # push message into queue
 
+# --- MIDI garbage collection (runs after the windows is closed) --- 
+def on_close():
+    global current_port
+    if current_port is not None:
+        midi_in.close_port()
+        print("MIDI port closed cleanly")
+    root.destroy()
+
 # --- Process MIDI messages in main thread ---
 def process_midi_queue():
     while not midi_queue.empty():
-        message, deltatime = midi_queue.get()
+        message, deltatime = midi_queue.get() # deltatime is a throwaway variable here
         status = message[0]
         note = message[1]
         velocity = message[2] if len(message) > 2 else 0
@@ -48,35 +56,53 @@ def process_midi_queue():
                 note += 12
 
         # Mode handling
-        if mode_var.get() == "keydown":
+        if mode_var.get() == "keydown": # keydown only
             if status & 0xF0 == 0x90 and velocity > 0:
+                # Code 0x9_ : Note On _ = channel number, 16 channels, 0-f
                 log_text.insert(tk.END, f"Note ON {note}\n")
                 # TODO: send keyboard event here
-                if natural_mask[note%12]: # notes with no sharps
-                    keyboard.press(piano[note-36])
-                else: # notes with sharps
-                    keyboard.press("shift")
-                    keyboard.press(piano[note-36])
-                    keyboard.release("shift")
+                    # taking only KEYDOWN
+            
+                # playable region
+                if note >= 24 and note <=108:
+                    # print (msg_and_dt)
+                    # out of zone
+                    
+                    if natural_mask[note%12]: # notes with no sharps
+                        keyboard.press(piano[note-36])
+                    else: # notes with sharps
+                        keyboard.press("shift")
+                        keyboard.press(piano[note-36])
+                        keyboard.release("shift")
 
+                    keyboard.release(piano[note-36])    
 
-        else:
+        else: # keydown and keyup 
             if status & 0xF0 == 0x90 and velocity > 0:
                 log_text.insert(tk.END, f"Note ON {note}\n")
-                if natural_mask[note%12]: # notes with no sharps
-                    keyboard.press(piano[note-36])
-                else: # notes with sharps
-                    keyboard.press("shift")
-                    keyboard.press(piano[note-36])
-                    keyboard.release("shift")
+
+                # playable region
+                if note >= 24 and note <=108:
+                    # print (msg_and_dt)
+                    # out of zone
+                    
+                    if natural_mask[note%12]: # notes with no sharps
+                        keyboard.press(piano[note-36])
+                    else: # notes with sharps
+                        keyboard.press("shift")
+                        keyboard.press(piano[note-36])
+                        keyboard.release("shift")
+
             elif status & 0xF0 == 0x80 or (status & 0xF0 == 0x90 and velocity == 0):
                 log_text.insert(tk.END, f"Note OFF {note}\n")
-            # TODO: send keyboard event here
-                if natural_mask[note%12]: # notes with no sharps
-                    keyboard.release(piano[note-36])
-                else: # notes with sharps
-                    keyboard.release(piano[note-36])        
-                
+                # TODO: send keyboard event here
+                if extra_octave:
+                    if note < 36:
+                        note += 12
+                    if note > 96:
+                        note -= 12
+
+                keyboard.release(piano[note-36])    
 
         log_text.see(tk.END)
 
@@ -144,21 +170,14 @@ log_text.grid(row=2, column=0, columnspan=3, pady=10)
 # Start polling the queue
 root.after(sleep_time, process_midi_queue)
 
-root.protocol("WM_DELETE_WINDOW", lambda: (stop_device(), root.destroy()))
+root.protocol("WM_DELETE_WINDOW", on_close)
+
+# Auto-refresh devices once on startup
+refresh_devices()
 
 root.mainloop()
 
-
-
-#print("boo")
-
-#midi_in.open_port(0)
-
-#print(midi_in.is_port_open())
-
-
-
-
+print("end of the program")
 
 while False:
     msg_and_dt = midi_in.get_message()
