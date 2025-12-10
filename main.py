@@ -15,9 +15,6 @@ ports = midi_in.get_ports()
 
 #print(ports)
 
-def midi_callback(event, data=None):
-    midi_queue.put(event) 
-
 ports_dict = {k[:-2]: v for (v,k) in enumerate(midi_in.get_ports())}
 sleep_time = 10 # CONST float sleep_time = 10:
 
@@ -55,13 +52,31 @@ def process_midi_queue():
             if status & 0xF0 == 0x90 and velocity > 0:
                 log_text.insert(tk.END, f"Note ON {note}\n")
                 # TODO: send keyboard event here
+                if natural_mask[note%12]: # notes with no sharps
+                    keyboard.press(piano[note-36])
+                else: # notes with sharps
+                    keyboard.press("shift")
+                    keyboard.press(piano[note-36])
+                    keyboard.release("shift")
+
 
         else:
             if status & 0xF0 == 0x90 and velocity > 0:
                 log_text.insert(tk.END, f"Note ON {note}\n")
+                if natural_mask[note%12]: # notes with no sharps
+                    keyboard.press(piano[note-36])
+                else: # notes with sharps
+                    keyboard.press("shift")
+                    keyboard.press(piano[note-36])
+                    keyboard.release("shift")
             elif status & 0xF0 == 0x80 or (status & 0xF0 == 0x90 and velocity == 0):
                 log_text.insert(tk.END, f"Note OFF {note}\n")
             # TODO: send keyboard event here
+                if natural_mask[note%12]: # notes with no sharps
+                    keyboard.release(piano[note-36])
+                else: # notes with sharps
+                    keyboard.release(piano[note-36])        
+                
 
         log_text.see(tk.END)
 
@@ -93,12 +108,14 @@ def stop_device():
         midi_in.close_port()
         log_text.insert(tk.END, "Closed current MIDI port\n")
         current_port = None
+    midi_in.close_port()
 
 def toggle_octave():
     log_text.insert(tk.END, f"Octave shift {'ON' if octave_var.get() else 'OFF'}\n")
 
 def toggle_mode():
     log_text.insert(tk.END, f"Mode: {mode_var.get()}\n")
+
 
 # --- GUI setup ---
 
@@ -127,19 +144,23 @@ log_text.grid(row=2, column=0, columnspan=3, pady=10)
 # Start polling the queue
 root.after(sleep_time, process_midi_queue)
 
+root.protocol("WM_DELETE_WINDOW", lambda: (stop_device(), root.destroy()))
+
 root.mainloop()
 
-print("boo")
-
-midi_in.open_port(0)
-
-print(midi_in.is_port_open())
 
 
+#print("boo")
+
+#midi_in.open_port(0)
+
+#print(midi_in.is_port_open())
 
 
 
-while True:
+
+
+while False:
     msg_and_dt = midi_in.get_message()
 
     #print(msg_and_dt)
