@@ -68,7 +68,11 @@ def process_midi_queue():
                     converted_note = note%12 + 84
                 elif note < 36:
                     converted_note = note%12 + 36
-            
+
+            if converted_note<36 or converted_note>96:
+                log_text.see(tk.END)
+                continue
+
             note_buttons[converted_note].config(bg="red")
 
             # TODO: send keyboard event here
@@ -92,7 +96,14 @@ def process_midi_queue():
                 elif note < 36:
                     converted_note = note%12 + 36
 
-            note_buttons[converted_note].config(bg="white") 
+            if converted_note<36 or converted_note>96:
+                log_text.see(tk.END)
+                continue
+
+            if natural_mask[converted_note%12]: # white keys
+                note_buttons[converted_note].config(bg="white")
+            else: # black keys
+                note_buttons[converted_note].config(bg="black")
 
             if mode_var.get() == "both": # keydown and keyup
                  #TODO: send keyboard event here
@@ -151,7 +162,7 @@ device_combo.grid(row=0, column=1, padx=5, pady=5)
 device_combo.bind("<<ComboboxSelected>>", select_device)
 ttk.Button(mainframe, text="Stop", command=stop_device).grid(row=0, column=2, padx=5, pady=5)
 
-octave_var = tk.BooleanVar(value=False)
+octave_var = tk.BooleanVar(value=True)
 ttk.Checkbutton(mainframe, text="Octave Shift", variable=octave_var, command=toggle_octave).grid(row=1, column=0, sticky="w")
 
 mode_var = tk.StringVar(value="keydown")
@@ -181,7 +192,7 @@ for midi_note in range(start_note, start_note + num_keys):
     semitone = midi_note % 12
     if semitone in white_notes:
         btn = tk.Label(piano_frame, text="", width=3, height=8,
-                       relief="raised", bg="white", bd=1)
+                       relief="groove", bg="white", bd=1)
         btn.grid(row=0, column=white_index, padx=0, pady=0, sticky="s")
         note_buttons[midi_note] = btn
         white_positions[midi_note] = white_index
