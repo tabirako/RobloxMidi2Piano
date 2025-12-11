@@ -16,7 +16,7 @@ ports = midi_in.get_ports()
 #print(ports)
 
 ports_dict = {k[:-2]: v for (v,k) in enumerate(midi_in.get_ports())}
-sleep_time = 10 # CONST float sleep_time = 10:
+sleep_time = 10 # CONST float sleep_time = 10 # milliseconds
 
 # start at 36, end at 96
 piano = ['1','1','2','2','3','4','4','5','5','6','6','7',
@@ -26,7 +26,6 @@ piano = ['1','1','2','2','3','4','4','5','5','6','6','7',
          'l','l','z','z','x','c','c','v','v','b','b','n',
          'm'] 
 natural_mask = [1,0,1,0,1,1,0,1,0,1,0,1]
-extra_octave = True
 
 # --- MIDI callback (runs in background thread) ---
 def midi_callback(event, data=None):
@@ -45,64 +44,59 @@ def process_midi_queue():
     while not midi_queue.empty():
         message, deltatime = midi_queue.get() # deltatime is a throwaway variable here
         status = message[0]
-        note = message[1]
+        note = message[1] # actual note being played
         velocity = message[2] if len(message) > 2 else 0
 
-        # Octave shift
+        converted_note = note # for playing on virtual piano and gui update since we only have 5 octaves
+
+        ## example for Octave shift
+        """
         if octave_var.get():
             if note > 95:
-                note -= 12
+                note = note%12 + 84
             elif note < 36:
-                note += 12
+                note = note%12 + 36
+        """
+        ## end example for Octave shift
 
-        # Mode handling
-        if mode_var.get() == "keydown": # keydown only
-            if status & 0xF0 == 0x90 and velocity > 0:
-                # Code 0x9_ : Note On _ = channel number, 16 channels, 0-f
-                log_text.insert(tk.END, f"Note ON {note}\n")
-                # TODO: send keyboard event here
-                    # taking only KEYDOWN
+        if status & 0xF0 == 0x90 and velocity > 0:
+            # Code 0x9_ : Note On _ = channel number, 16 channels, 0-f
+            log_text.insert(tk.END, f"Note ON {note}\n")
+
+            if octave_var.get() == True:
+                if note > 95:
+                    converted_note = note%12 + 84
+                elif note < 36:
+                    converted_note = note%12 + 36
             
-                # playable region
-                if note >= 24 and note <=108:
-                    # print (msg_and_dt)
-                    # out of zone
+            note_buttons[converted_note].config(bg="red")
+
+            # TODO: send keyboard event here
+            if natural_mask[note%12]: # white keys
+                keyboard.press(piano[converted_note-36])
+            else: # black keys
+                keyboard.press("shift")
+                keyboard.press(piano[converted_note-36])
+                keyboard.release("shift")
                     
-                    if natural_mask[note%12]: # notes with no sharps
-                        keyboard.press(piano[note-36])
-                    else: # notes with sharps
-                        keyboard.press("shift")
-                        keyboard.press(piano[note-36])
-                        keyboard.release("shift")
+            if mode_var.get() == "keydown": # keydown only
+                keyboard.release(piano[converted_note-36]) 
 
-                    keyboard.release(piano[note-36])    
+        if status & 0xF0 == 0x80 or (status & 0xF0 == 0x90 and velocity == 0):
+            # Code 0x8_ : Note Off _ = channel number, 16 channels, 0-f
+            log_text.insert(tk.END, f"Note OFF {note}\n")
 
-        else: # keydown and keyup 
-            if status & 0xF0 == 0x90 and velocity > 0:
-                log_text.insert(tk.END, f"Note ON {note}\n")
+            if octave_var.get() == True:
+                if note > 95:
+                    converted_note = note%12 + 84
+                elif note < 36:
+                    converted_note = note%12 + 36
 
-                # playable region
-                if note >= 24 and note <=108:
-                    # print (msg_and_dt)
-                    # out of zone
-                    
-                    if natural_mask[note%12]: # notes with no sharps
-                        keyboard.press(piano[note-36])
-                    else: # notes with sharps
-                        keyboard.press("shift")
-                        keyboard.press(piano[note-36])
-                        keyboard.release("shift")
+            note_buttons[converted_note].config(bg="white") 
 
-            elif status & 0xF0 == 0x80 or (status & 0xF0 == 0x90 and velocity == 0):
-                log_text.insert(tk.END, f"Note OFF {note}\n")
-                # TODO: send keyboard event here
-                if extra_octave:
-                    if note < 36:
-                        note += 12
-                    if note > 96:
-                        note -= 12
-
-                keyboard.release(piano[note-36])    
+            if mode_var.get() == "both": # keydown and keyup
+                 #TODO: send keyboard event here
+                keyboard.release(piano[converted_note-36]) 
 
         log_text.see(tk.END)
 
@@ -177,7 +171,7 @@ note_buttons = {}
 white_notes = [0, 2, 4, 5, 7, 9, 11]  # semitone offsets
 black_notes = [1, 3, -1, 6, 8, 10, -1]  # -1 = no black key above
 
-start_note = 48  # C3
+start_note = 36  # C2 is 36
 num_keys = 61    # 5 octaves
 white_positions = {}  # map midi_note -> column index
 white_index = 0
@@ -208,7 +202,6 @@ for midi_note in range(start_note, start_note + num_keys):
                 btn.place(in_=piano_frame, relx=(col + 1)/white_index, rely=0, anchor="n")
                 note_buttons[black_note] = btn
 
-
 # Start polling the queue
 root.after(sleep_time, process_midi_queue)
 
@@ -216,8 +209,6 @@ root.protocol("WM_DELETE_WINDOW", on_close)
 
 # Auto-refresh devices once on startup
 refresh_devices()
-
-
 
 root.mainloop()
 
